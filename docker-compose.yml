@@ -1,0 +1,84 @@
+version: "3.3"
+services:
+  requirements:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+      args:
+        - EXTRA_REQUIREMENTS=${ENVIRONMENT_NAME}
+        - USER_UID=${USER_UID}
+        - USER_GID=${USER_UID}
+        - DOCKER_USER=${DOCKER_USER}
+    image: giscube_search_requirements
+    entrypoint: ["/bin/sh"]
+
+  db:
+    build:
+      context: docker/db/
+      dockerfile: Dockerfile
+    env_file:
+     - .env
+     - db.env
+    command: ["/bin/bash", "/docker/db/postgresql10.sh"]
+    volumes:
+      - ./docker:/docker
+      - ./shared:/shared
+      - postgresql_data:/var/lib/postgresql/
+    stdin_open: true
+    tty: true
+    ports:
+      - "6432:5432"
+    networks:
+      giscube_search_network:
+        ipv4_address: 163.28.0.4
+
+  app:
+    depends_on:
+      - db
+    image: giscube_search_requirements
+    env_file:
+     - .env
+     - db.env
+     - app.env
+    entrypoint: ["/bin/sh", "/docker/app/entrypoint.sh"]
+    command: ["/bin/sh", "/docker/wait-for.sh", "db:5432", "--", "/bin/sh", "/docker/app/rundev.sh"]
+    volumes:
+      - ./docker:/docker
+      - .:/app
+      - ./docker_data:/docker_data
+    stdin_open: true
+    tty: true
+    ports:
+      - "8000:8000"
+    networks:
+      giscube_search_network:
+        ipv4_address: 163.28.0.5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    logging:
+        driver: none
+    env_file:
+     - pgadmin.env
+    environment:
+      PGADMIN_LISTEN_ADDRESS: 0.0.0.0
+    ports:
+      - "16543:80"
+    depends_on:
+      - db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      giscube_search_network:
+        ipv4_address: 163.28.0.6
+volumes:
+  postgresql_data:
+  pgadmin_data:
+#   redis_data:
+
+networks:
+    giscube_search_network:
+        ipam:
+            driver: default
+            config:
+                - subnet: 163.28.0.0/24

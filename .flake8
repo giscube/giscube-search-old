@@ -1,0 +1,5 @@
+[flake8]
+ignore = D203
+exclude = .git,__pycache__,old,build,dist,migrations,no
+max-complexity = 15
+max-line-length = 119
