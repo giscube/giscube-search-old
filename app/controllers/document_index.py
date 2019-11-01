@@ -1,3 +1,5 @@
+import math
+
 from asyncpg.exceptions import UndefinedTableError
 
 from sanic.response import json
@@ -26,19 +28,17 @@ class DocumentIndexController(HTTPMethodView):
         if p:
             latlon = p.split(',')
             latlon = list(map(float, latlon))
-            distance = request.args.get('r', 25)
+            distance = int(request.args.get('r', 25))
             geom = func.ST_GeomFromEWKT('SRID=4326;POINT(%s %s)' % (latlon[1], latlon[0]))
             qs = qs.where(
                 or_(
                     and_(
                         document_index.c.geom_point.isnot(None),
-                        func.ST_Distance(
-                            cast(document_index.c.geom_point, Geography), cast(geom, Geography)) < distance
+                        func.ST_DistanceSphere(document_index.c.geom_point, geom) < distance
                     ),
                     and_(
                         document_index.c.geom_linestring.isnot(None),
-                        func.ST_Distance(
-                            cast(document_index.c.geom_linestring, Geography), cast(geom, Geography)) < distance
+                        func.ST_DistanceSphere(document_index.c.geom_linestring, geom) < distance
                     ),
                     and_(
                         document_index.c.geom_polygon.isnot(None),
